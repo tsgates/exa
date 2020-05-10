@@ -264,7 +264,7 @@ impl TimeFormat {
 
     /// Determine how time should be formatted in timestamp columns.
     fn deduce<V: Vars>(matches: &MatchedFlags, vars: &V) -> Result<TimeFormat, Misfire> {
-        pub use crate::output::time::{DefaultFormat, ISOFormat};
+        pub use crate::output::time::{DefaultFormat, ISOFormat, HumanFormat};
 
         let word = match matches.get(&flags::TIME_STYLE)? {
             Some(w) => w.to_os_string(),
@@ -288,6 +288,9 @@ impl TimeFormat {
         }
         else if &word == "full-iso" {
             Ok(TimeFormat::FullISO)
+        }
+        else if &word == "human" {
+            Ok(TimeFormat::Human(HumanFormat::load()))
         }
         else {
             Err(Misfire::BadArgument(&flags::TIME_STYLE, word.into()))

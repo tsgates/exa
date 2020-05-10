@@ -45,6 +45,8 @@ pub enum TimeFormat {
     /// millisecond and includes its offset down to the minute. This too uses
     /// only numbers so doesn’t require any special consideration.
     FullISO,
+
+    Human(HumanFormat),
 }
 
 // There are two different formatting functions because local and zoned
@@ -57,6 +59,7 @@ impl TimeFormat {
             TimeFormat::ISOFormat(ref iso)     => iso.format_local(time),
             TimeFormat::LongISO                => long_local(time),
             TimeFormat::FullISO                => full_local(time),
+            TimeFormat::Human(ref human)       => human.format_local(time),
         }
     }
 
@@ -66,6 +69,7 @@ impl TimeFormat {
             TimeFormat::ISOFormat(ref iso)     => iso.format_zoned(time, zone),
             TimeFormat::LongISO                => long_zoned(time, zone),
             TimeFormat::FullISO                => full_zoned(time, zone),
+            TimeFormat::Human(ref human)       => human.format_zoned(time, zone),
         }
     }
 }
@@ -181,7 +185,39 @@ impl DefaultFormat {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct HumanFormat {
+    now: LocalDateTime
+}
 
+impl HumanFormat {
+    pub fn load() -> HumanFormat {
+        HumanFormat { now: LocalDateTime::now() }
+    }
+
+    fn format_zoned(&self, time: Duration, zone: &TimeZone) -> String {
+        let old = zone.to_zoned(LocalDateTime::at(time.as_secs() as i64));
+        let now = zone.to_zoned(self.now);
+
+        self.format_human(now.to_instant().seconds() - old.to_instant().seconds())
+    }
+
+    fn format_local(&self, time: Duration) -> String {
+        self.format_human(self.now.to_instant().seconds() - time.as_secs() as i64)
+    }
+
+    fn format_human(&self, diff: i64) -> String {
+        return {
+            if diff < 0 { "???".to_string() }
+            else if diff < 60 { format!("{:2}s", diff) }
+            else if diff < 60*60 { format!("{:2}m", diff/60) }
+            else if diff < 60*60*24 { format!("{:2}h", diff/60/60) }
+            else if diff < 60*60*24*30 { format!("{:2}d", diff/60/60/24) }
+            else if diff < 60*60*24*365 { format!("{:2}M", diff/60/60/24/30) }
+            else { format!("{:2}y", diff/60/60/24/365) }
+        }
+    }
+}
 
 #[allow(trivial_numeric_casts)]
 fn long_local(time: Duration) -> String {
@@ -220,8 +256,6 @@ fn full_zoned(time: Duration, zone: &TimeZone) -> String {
             date.hour(), date.minute(), date.second(), time.subsec_nanos(),
             offset.hours(), offset.minutes().abs())
 }
-
-
 
 #[derive(Debug, Clone)]
 pub struct ISOFormat {
